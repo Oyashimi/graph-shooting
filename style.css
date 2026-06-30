@@ -1,0 +1,219 @@
+:root {
+  /* ベース：寒色グレースケールで統一 */
+  --bg: #141821;
+  --panel: #1b212c;
+  --line: #2a3340;
+  --grid: #1f2632;
+  --grid-strong: #2c3543;
+  --axis: #3f4b5c;
+  --fg: #dce2ea;
+  --fg-dim: #8895a8;
+
+  /* アクセントは2色だけに絞る */
+  --accent: #4f9d97;        /* 主役：曲線・達成・主要ボタン・フォーカス */
+  --accent-strong: #5cb0a9;
+  --warm: #c89b5e;          /* 操作主体：プレイヤー */
+
+  /* game.js が canvas 描画で参照する色（var を解決させないため実値で定義） */
+  --player: #c89b5e;
+  --target: #7c899c;        /* 未ヒットの的：ニュートラルなグレー */
+  --target-hit: #4f9d97;    /* 撃破でアクセント色に点灯 */
+  --accent-2: #b25f5a;      /* エラーのみ */
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", sans-serif;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+/* ===== ゲーム画面 ===== */
+#stage-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#board {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* HUD */
+#hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 24px;
+  padding: 14px 18px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  pointer-events: none;
+}
+
+.hud-item span {
+  color: var(--fg);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* 中央メッセージ */
+#message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  font-size: clamp(26px, 6vw, 52px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--accent-strong);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+#message.hidden {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.92);
+}
+
+#message .sub {
+  display: block;
+  margin-top: 10px;
+  font-size: 0.34em;
+  font-weight: 500;
+  color: var(--fg-dim);
+  letter-spacing: 0.12em;
+}
+
+/* ===== 入力バー ===== */
+#input-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  position: relative;
+}
+
+#formula {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 14px;
+  height: 50px;
+  transition: border-color 0.15s ease;
+}
+
+#formula:focus-within {
+  border-color: var(--accent);
+}
+
+#formula .lhs {
+  color: var(--fg-dim);
+  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 18px;
+  font-weight: 500;
+  user-select: none;
+}
+
+#expr {
+  flex: 1 1 auto;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--fg);
+  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 18px;
+  min-width: 0;
+}
+
+#expr::placeholder {
+  color: var(--fg-dim);
+  opacity: 0.55;
+  font-size: 14px;
+}
+
+button {
+  flex: 0 0 auto;
+  height: 50px;
+  padding: 0 24px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+#fire {
+  background: var(--accent);
+  color: #0c1716;
+}
+
+#fire:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+#fire:disabled {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--fg-dim);
+  cursor: not-allowed;
+}
+
+#next {
+  background: transparent;
+  border-color: var(--warm);
+  color: var(--warm);
+}
+
+#next:hover {
+  background: var(--warm);
+  color: #1c1407;
+}
+
+/* エラー表示 */
+#err {
+  position: absolute;
+  left: 16px;
+  bottom: calc(100% + 6px);
+  background: var(--accent-2);
+  color: #fff;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+
+.hidden {
+  display: none !important;
+}
