@@ -32,6 +32,7 @@
           id="expr"
           type="text"
           inputmode="latin"
+          maxlength="120"
           lang="en"
           name="expr-no-history"
           placeholder="例:  x^2   /   sin(x)   /   2*x+1   /   3/x"
@@ -48,8 +49,12 @@
     </form>
   </div>
 
-  <!-- 関数評価のみ mathjs を利用（CDN） -->
-  <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.2/lib/browser/math.js"></script>
+  <!-- 関数評価のみ mathjs を利用（CDN）。SRIで配信物の改ざんを検知（不一致なら読み込み失敗） -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/mathjs@12.4.2/lib/browser/math.js"
+    integrity="sha384-LTEA4V0IswLrBgCFiDa/O0ZYiy0moUSxQ0toSl9p9CwKQwGTSjue1yH9d196jLUl"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"></script>
   <script src="game.js"></script>
 </body>
 </html>

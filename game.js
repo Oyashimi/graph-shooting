@@ -15,6 +15,29 @@
 (() => {
   'use strict';
 
+  // ===== セキュリティ：数式は「信頼できない入力」として扱う ================
+  // mathjs で任意コード実行の主因となりうる import / createUnit のみ無効化する。
+  // （parse / evaluate はアプリ自身が式の解釈に使うため無効化しない。これらを
+  //  上書きすると math.parse まで止まり、数式が一切認識できなくなる。）
+  // 現状はクライアント単体なので影響は自分のタブ内に閉じるが、将来サーバ／対戦で
+  // 他人の式を評価する拡張に備えた多層防御。
+  if (typeof math !== 'undefined' && typeof math.import === 'function') {
+    const blocked = () => {
+      throw new Error('この関数は使用できません');
+    };
+    try {
+      math.import(
+        {
+          import: blocked,      // 関数の取り込み（最も危険）
+          createUnit: blocked,  // 単位定義経由の名前空間汚染
+        },
+        { override: true }
+      );
+    } catch (e) {
+      /* 既に上書き済みなら無視 */
+    }
+  }
+
   // ----- 定数 -----
   const VIEW_RADIUS = 28;     // 画面中心から見えるワールド半径（おおよそ）
   const PLAY_RANGE = 24;      // 的を置く範囲 [-PLAY_RANGE, PLAY_RANGE]
@@ -126,6 +149,19 @@
       state.targets.push(t);
     }
 
+    // フォールバック：制約が厳しく1個も置けなかった場合でも、
+    // 進行不能（クリア判定が常にfalse）を避けるため最低1個は必ず配置する。
+    if (state.targets.length === 0) {
+      const ang = rand(0, Math.PI * 2);
+      const dist = (MIN_DIST + PLAY_RANGE) / 2; // プレイヤーから十分離れた距離
+      state.targets.push({
+        x: state.player.x + Math.cos(ang) * dist,
+        y: state.player.y + Math.sin(ang) * dist,
+        r: rand(0.45, 0.7),
+        hit: false,
+      });
+    }
+
     nextBtn.classList.add('hidden');
     fireBtn.classList.remove('hidden');
     fireBtn.disabled = !state.exprValid;
@@ -171,8 +207,8 @@
     }
   }
 
-  function onInput() {
-    enforceHalfWidth();
+  // 式の解釈と状態更新（math.parse→compile→evaluate を含む重い処理）。
+  function evaluateInput() {
     const res = parseExpr(exprInput.value);
     state.exprValid = res.ok;
     state.compiled = res.ok ? res.code : null;
@@ -185,6 +221,21 @@
     if (!state.firing && !state.cleared) {
       fireBtn.disabled = !state.exprValid;
     }
+  }
+
+  // 入力ハンドラ：半角矯正は即時（カーソル維持）、重いparseはデバウンスして
+  // 低スペック端末や長い式で入力中にUIが詰まるのを防ぐ。
+  let parseTimer = null;
+  function onInput() {
+    enforceHalfWidth();
+    clearTimeout(parseTimer);
+    parseTimer = setTimeout(evaluateInput, 120);
+  }
+
+  // 保留中のデバウンスを取り消して即座に最新の式を確定する（発射・ステージ切替時）。
+  function flushInput() {
+    clearTimeout(parseTimer);
+    evaluateInput();
   }
 
   // f(x) を安全に評価。失敗時は NaN
@@ -261,6 +312,7 @@
 
   // ===== 発射 ===============================================================
   function fire() {
+    flushInput(); // 保留中のparseを確定し、最新の式で確実にcompileしてから発射
     if (!state.exprValid || state.firing || state.cleared) return;
     state.firing = true;
     state.fireStart = performance.now();
@@ -303,7 +355,7 @@
     // 入力した関数をリセット
     exprInput.value = '';
     newStage();
-    onInput();
+    flushInput();
     exprInput.focus();
   }
 
@@ -587,6 +639,14 @@
   // ===== 起動 ===============================================================
   resize();
   newStage();
-  onInput();
+  // mathjs が読み込めていない場合（SRI不一致・ネット遮断など）は明示的に知らせる。
+  if (typeof math === 'undefined') {
+    state.exprValid = false;
+    fireBtn.disabled = true;
+    exprInput.disabled = true;
+    showError('関数エンジン(mathjs)を読み込めませんでした。通信環境を確認して再読み込みしてください。');
+  } else {
+    flushInput();
+  }
   requestAnimationFrame(frame);
 })();

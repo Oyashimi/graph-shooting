@@ -14,7 +14,7 @@
   --accent-strong: #5cb0a9;
   --warm: #c89b5e;          /* 操作主体：プレイヤー */
 
-  /* game.js が canvas 描画で参照する色（var を解決させないため実値で定義） */
+  /* game.js が canvas 描画で参照する色（getComputedStyle で CSS 変数として解決して使用） */
   --player: #c89b5e;
   --target: #7c899c;        /* 未ヒットの的：ニュートラルなグレー */
   --target-hit: #4f9d97;    /* 撃破でアクセント色に点灯 */
