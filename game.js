@@ -2,10 +2,12 @@
  * 数学グラフバトル！  --  シングルプレイ プロトタイプ
  *
  * ゲームの仕組み
- *  - プレイヤー（砲台）はワールド平面上のランダムな位置・向きに置かれる。
- *  - プレイヤーの位置が関数の原点(0,0)、向きがローカルx軸の正方向。
- *  - 入力した y=f(x) のグラフを、プレイヤーの向きで回転し前方へ伸ばす。
+ *  - プレイヤー（砲台）はワールド平面の原点(0,0)に固定で置かれる。
+ *  - プレイヤーの位置が関数の原点(0,0)、ローカルx軸はワールドx軸と一致（回転なし）。
+ *  - 入力した y=f(x) のグラフを、原点から左右両方向へ伸ばす。
  *  - 平面上の的（ターゲット）を曲線が貫けばヒット。全部貫けばクリア。
+ *
+ * NOTE: ランダムな配置・向きの回転は将来の拡張余地。現状は原点固定・回転なし。
  *
  * 後でマルチプレイ（WebSocket）に拡張できるよう、ゲーム状態は state に集約。
  * ======================================================================= */
@@ -174,6 +176,7 @@
     const res = parseExpr(exprInput.value);
     state.exprValid = res.ok;
     state.compiled = res.ok ? res.code : null;
+    curveCache = null; // 式が変わったので曲線キャッシュを破棄
     if (res.ok || !exprInput.value.trim()) {
       hideError();
     } else {
@@ -196,18 +199,30 @@
   }
 
   // ===== 曲線サンプリング ===================================================
-  // ローカルx 0..maxLen を刻んでワールド座標の配列にする
-  function sampleCurve(maxLen) {
-    const pts = [];
-    const step = CURVE_LEN / CURVE_SAMPLES;
-    // プレイヤー位置を原点として左右両方向に伸ばす
-    for (let lx = -maxLen; lx <= maxLen + 1e-9; lx += step) {
+  // 式が変わったときだけ全長 -CURVE_LEN..CURVE_LEN を評価してキャッシュする。
+  // 左右合計でおよそ CURVE_SAMPLES 点（刻みは全長 2*CURVE_LEN を CURVE_SAMPLES 等分）。
+  // 重い mathjs 評価をフレーム毎に走らせないための最適化。
+  // キャッシュ要素: { lx, ly }（ly が非有限なら ly=null で不連続点を表す）。
+  let curveCache = null;
+  function buildCurveCache() {
+    const cache = [];
+    const step = (2 * CURVE_LEN) / CURVE_SAMPLES;
+    for (let lx = -CURVE_LEN; lx <= CURVE_LEN + 1e-9; lx += step) {
       const ly = evalF(lx);
-      if (!isFinite(ly)) {
-        pts.push(null); // 不連続点で線を切る
-        continue;
-      }
-      pts.push(localToWorld(lx, ly));
+      cache.push({ lx, ly: isFinite(ly) ? ly : null });
+    }
+    return cache;
+  }
+
+  // キャッシュから |lx| <= maxLen の範囲をワールド座標の配列にする。
+  // localToWorld は加算のみで軽いので描画時に毎回変換してよい。
+  function sampleCurve(maxLen) {
+    if (!state.exprValid) return [];
+    if (!curveCache) curveCache = buildCurveCache();
+    const pts = [];
+    for (const c of curveCache) {
+      if (Math.abs(c.lx) > maxLen + 1e-9) continue;
+      pts.push(c.ly === null ? null : localToWorld(c.lx, c.ly)); // 不連続点で線を切る
     }
     return pts;
   }
